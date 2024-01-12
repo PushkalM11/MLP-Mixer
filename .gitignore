@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Ignore all .DS_Store files
+**/.DS_Store
+
+# Ignore weights directory
+Weights/
