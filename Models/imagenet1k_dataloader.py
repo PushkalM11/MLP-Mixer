@@ -4,10 +4,12 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 import torch
+import torchvision
 from torch.utils.data import DataLoader
 
-def get_imagenet_loaders(data_dir, test_size = 0.2, batch_size = 32, shuffle = True, device = torch.device("cuda")):
+def get_imagenet_loaders(data_dir, image_size = 224, test_size = 0.2, batch_size = 32, shuffle = True, device = torch.device("cuda")):
 
+    resize = torchvision.transforms.Scale((image_size, image_size))
     def get_image(batch_data):
         images_path, labels = [], []
         for data in batch_data:
@@ -15,7 +17,10 @@ def get_imagenet_loaders(data_dir, test_size = 0.2, batch_size = 32, shuffle = T
             labels.append(data[1])
         data = []
         for img_path in images_path:
-            data.append(torch.tensor(cv2.imread(img_path)).type(torch.float32).permute(2, 0, 1).unsqueeze(0) / 255.0)
+            image = cv2.imread(img_path)
+            image = torch.tensor(image).type(torch.float32).permute(2, 0, 1).unsqueeze(0) / 255.0
+            image = resize(image)
+            data.append(image)
         data = torch.cat(data)
         labels = torch.tensor(labels)
         return data.to(device), labels.to(device)
