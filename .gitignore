@@ -133,4 +133,3 @@ dmypy.json
 
 # Ignore weights and data directory
 Weights/
-Data/
