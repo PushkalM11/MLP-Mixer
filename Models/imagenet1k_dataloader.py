@@ -1,40 +1,42 @@
 import os
 import cv2
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 import torch
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
-from torch.utils.data.dataloader import default_collate
 
-def get_imagenet1k_data_loaders(data_dir, batch_size, shuffle, device):
+def get_imagenet_loaders(data_dir, test_size = 0.2, batch_size = 32, shuffle = True, device = torch.device("cuda")):
+
+    def get_image(batch_data):
+        images_path, labels = [], []
+        for data in batch_data:
+            images_path.append(data[0])
+            labels.append(data[1])
+        data = []
+        for img_path in images_path:
+            data.append(torch.tensor(cv2.imread(img_path)).type(torch.float32).permute(2, 0, 1).unsqueeze(0) / 255.0)
+        data = torch.cat(data)
+        labels = torch.tensor(labels)
+        return data.to(device), labels.to(device)
+
     folders = os.listdir(data_dir)
     classes = np.array([int(f[0 : 3]) for f in folders])
-    data = []
-    labels = []
+    all_files_path = []
+    all_files_classes = []
+
     for i in range(len(folders)):
-        new_dir = data_dir + folders[i]
-        files = os.listdir(new_dir)
-        for f in files:
-            image = np.asarray(cv2.imread(new_dir + "/" + f), dtype = np.float32).copy() / 255.0
-            data.append(image)
-            labels.append(classes[i])
+        files = os.listdir(data_dir + folders[i])
+        all_files_path += [data_dir + folders[i] + "/" + f for f in files]
+        all_files_classes += [classes[i] for f in files]
 
-    data = np.array(data)
-    labels = np.array(labels)
-
-    train_input, test_input, train_output, test_output = train_test_split(
-                                                                            data, 
-                                                                            labels, 
-                                                                            test_size = 0.1, 
-                                                                            random_state = 100
-                                                                        )
+    data = all_files_path
+    labels = all_files_classes
+    train_input, test_input, train_output, test_output = train_test_split(data, labels, test_size = test_size, random_state = 100)
 
     train_loader = DataLoader(list(zip(train_input, train_output)), 
-                            batch_size = batch_size, shuffle = shuffle, 
-                            collate_fn = lambda x: tuple(x_.to(device) for x_ in default_collate(x)))
+                            batch_size = batch_size, shuffle = shuffle, collate_fn = get_image)
     test_loader = DataLoader(list(zip(test_input, test_output)),
-                            batch_size = batch_size, shuffle = shuffle, 
-                            collate_fn = lambda x: tuple(x_.to(device) for x_ in default_collate(x)))
-
+                            batch_size = batch_size, shuffle = shuffle, collate_fn = get_image)
+    
     return train_loader, test_loader
