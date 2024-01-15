@@ -134,3 +134,5 @@ dmypy.json
 # Ignore weights
 Weights/imagenet1k_Mixer-B_16.npz
 Weights/gsam_Mixer-B_16.npz
+.DS_Store
+.DS_Store
