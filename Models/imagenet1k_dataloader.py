@@ -7,7 +7,7 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 
-def get_imagenet_loaders(data_dir, image_size = 224, test_size = 0.2, batch_size = 32, shuffle = True, device = torch.device("cuda")):
+def get_imagenet_loaders(data_dir, image_size = 224, test_size = 0.2, batch_size = 32, shuffle = True, device = torch.device("cpu")):
 
     resize = torchvision.transforms.Resize((image_size, image_size), antialias = True)
     def get_image(batch_data):
