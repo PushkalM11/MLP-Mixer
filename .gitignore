@@ -135,5 +135,3 @@ dmypy.json
 Weights/imagenet1k_Mixer-B_16.npz
 Weights/gsam_Mixer-B_16.npz
 Weights/imagenet1k-Mixer-B_16.npz
-.DS_Store
-.DS_Store
