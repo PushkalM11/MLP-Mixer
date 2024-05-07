@@ -6,9 +6,9 @@ import torch.nn as nn
 
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.layers import PatchEmbed, Mlp, DropPath, lecun_normal_, to_2tuple
-from ._builder import build_model_with_cfg
-from ._manipulate import named_apply, checkpoint_seq
-from ._registry import generate_default_cfgs, register_model, register_model_deprecations
+from timm.models._builder import build_model_with_cfg
+from timm.models._manipulate import named_apply, checkpoint_seq
+from timm.models._registry import generate_default_cfgs, register_model, register_model_deprecations
 
 def _init_weights(module: nn.Module, name: str, head_bias: float = 0., flax=False):
     """ Mixer weight initialization (trying to match Flax defaults)
@@ -135,17 +135,6 @@ class MlpMixer(nn.Module):
         named_apply(partial(_init_weights, head_bias=head_bias), module=self)  # depth-first
 
     @torch.jit.ignore
-    def group_matcher(self, coarse=False):
-        return dict(
-            stem=r'^stem',  # stem and embed
-            blocks=[(r'^blocks\.(\d+)', None), (r'^norm', (99999,))]
-        )
-
-    @torch.jit.ignore
-    def set_grad_checkpointing(self, enable=True):
-        self.grad_checkpointing = enable
-
-    @torch.jit.ignore
     def get_classifier(self):
         return self.head
 
@@ -168,4 +157,41 @@ class MlpMixer(nn.Module):
         x = self.forward_features(x)
         x = self.forward_head(x)
         return x
-    
+
+def checkpoint_filter_fn(state_dict, model):
+    """ Remap checkpoints if needed """
+    if 'patch_embed.proj.weight' in state_dict:
+        # Remap FB ResMlp models -> timm
+        out_dict = {}
+        for k, v in state_dict.items():
+            k = k.replace('patch_embed.', 'stem.')
+            k = k.replace('attn.', 'linear_tokens.')
+            k = k.replace('mlp.', 'mlp_channels.')
+            k = k.replace('gamma_', 'ls')
+            if k.endswith('.alpha') or k.endswith('.beta'):
+                v = v.reshape(1, 1, -1)
+            out_dict[k] = v
+        return out_dict
+    return state_dict
+
+def _create_mixer(variant, pretrained=False, **kwargs):
+    if kwargs.get('features_only', None):
+        raise RuntimeError('features_only not implemented for MLP-Mixer models.')
+
+    model = build_model_with_cfg(
+        MlpMixer,
+        variant,
+        pretrained,
+        pretrained_filter_fn=checkpoint_filter_fn,
+        **kwargs,
+    )
+    return model
+
+# @register_model
+# def mixer_b16_224(pretrained=False, **kwargs) -> MlpMixer:
+#     """ Mixer-B/16 224x224. ImageNet-1k pretrained weights.
+#     Paper:  'MLP-Mixer: An all-MLP Architecture for Vision' - https://arxiv.org/abs/2105.01601
+#     """
+#     model_args = dict(patch_size=16, num_blocks=12, embed_dim=768, **kwargs)
+#     model = _create_mixer('mixer_b16_224', pretrained=pretrained, **model_args)
+#     return model
